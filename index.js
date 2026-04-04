@@ -97,6 +97,16 @@ function handleMessageReceived(messageIndex) {
     message.mes = result.cleanedText;
     message.extra._thinkTagsProcessed = true;
 
+    // Sync modified text to swipe data so it persists across swipe navigation
+    if (Array.isArray(message.swipes) && message.swipes.length > 0) {
+        message.swipes[message.swipe_id ?? 0] = message.mes;
+    }
+
+    // Update the DOM if the message is already rendered
+    if (typeof context.updateMessageBlock === 'function') {
+        context.updateMessageBlock(index, message);
+    }
+
     // Force save since ST's built-in handler may have skipped saving
     context.saveChatDebounced();
 }
