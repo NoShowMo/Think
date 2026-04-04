@@ -52,6 +52,7 @@ function extractThinkContent(text, prefix, suffix) {
 
 /**
  * Handle incoming AI messages — extract think tags into reasoning.
+ * Called on both MESSAGE_RECEIVED and CHARACTER_MESSAGE_RENDERED for robustness.
  */
 function handleMessageReceived(messageIndex) {
     const context = SillyTavern.getContext();
@@ -65,14 +66,28 @@ function handleMessageReceived(messageIndex) {
     const message = chat[index];
     if (!message || !message.mes) return;
 
-    const result = extractThinkContent(message.mes, settings.prefix, settings.suffix);
+    // Skip if already processed by this extension
+    if (message.extra?._thinkTagsProcessed) return;
+
+    // Try raw tags first
+    let result = extractThinkContent(message.mes, settings.prefix, settings.suffix);
+
+    // Try HTML-encoded variants as fallback
+    if (!result) {
+        const htmlPrefix = settings.prefix.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const htmlSuffix = settings.suffix.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        if (htmlPrefix !== settings.prefix) {
+            result = extractThinkContent(message.mes, htmlPrefix, htmlSuffix);
+        }
+    }
+
     if (!result) return;
 
     if (!message.extra) {
         message.extra = {};
     }
 
-    // Append to existing reasoning if present (e.g. from API-native reasoning)
+    // Merge: append to existing reasoning (e.g. from API-native reasoning)
     if (message.extra.reasoning) {
         message.extra.reasoning += '\n\n' + result.reasoning;
     } else {
@@ -80,6 +95,10 @@ function handleMessageReceived(messageIndex) {
     }
 
     message.mes = result.cleanedText;
+    message.extra._thinkTagsProcessed = true;
+
+    // Force save since ST's built-in handler may have skipped saving
+    context.saveChatDebounced();
 }
 
 /**
@@ -135,5 +154,9 @@ jQuery(async () => {
     loadSettings();
 
     const context = SillyTavern.getContext();
+    // Listen to both events for robustness — MESSAGE_RECEIVED fires first,
+    // CHARACTER_MESSAGE_RENDERED fires after as a safety net in case
+    // message text was re-synced between events.
     context.eventSource.on(context.eventTypes.MESSAGE_RECEIVED, handleMessageReceived);
+    context.eventSource.on(context.eventTypes.CHARACTER_MESSAGE_RENDERED, handleMessageReceived);
 });
