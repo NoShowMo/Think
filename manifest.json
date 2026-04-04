@@ -1,0 +1,12 @@
+{
+    "display_name": "Think Tags",
+    "loading_order": 100,
+    "requires": [],
+    "optional": [],
+    "js": "index.js",
+    "css": "",
+    "author": "NoShowMo",
+    "version": "1.0.0",
+    "homePage": "https://github.com/NoShowMo/Think",
+    "auto_update": true
+}

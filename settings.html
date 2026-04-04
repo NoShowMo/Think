@@ -1,0 +1,23 @@
+<div class="think-settings">
+    <div class="inline-drawer">
+        <div class="inline-drawer-toggle inline-drawer-header">
+            <b>Think Tags</b>
+            <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
+        </div>
+        <div class="inline-drawer-content">
+            <div class="flex-container">
+                <input id="think_enabled" type="checkbox" />
+                <label for="think_enabled">Enable Think tag extraction</label>
+            </div>
+            <label for="think_prefix">Prefix (opening tag)</label>
+            <input id="think_prefix" type="text" class="text_pole" placeholder="<think>" />
+            <label for="think_suffix">Suffix (closing tag)</label>
+            <input id="think_suffix" type="text" class="text_pole" placeholder="</think>" />
+            <small>
+                Text wrapped between these tags in AI responses will be extracted
+                into the Reasoning box and removed from the message.
+            </small>
+            <hr class="sysHR" />
+        </div>
+    </div>
+</div>
