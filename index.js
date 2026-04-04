@@ -58,30 +58,56 @@ function handleMessageReceived(messageIndex) {
     const context = SillyTavern.getContext();
     const settings = context.extensionSettings[MODULE_NAME];
 
-    if (!settings || !settings.enabled) return;
+    console.log('[ThinkTags] Handler fired, event arg:', messageIndex, 'type:', typeof messageIndex);
+
+    if (!settings || !settings.enabled) {
+        console.log('[ThinkTags] Extension disabled or no settings, skipping');
+        return;
+    }
 
     // Fall back to last message if index is invalid
     const chat = context.chat;
     const index = (typeof messageIndex === 'number' && chat[messageIndex]) ? messageIndex : chat.length - 1;
     const message = chat[index];
-    if (!message || !message.mes) return;
+
+    console.log('[ThinkTags] Message index:', index, 'has message:', !!message);
+
+    if (!message || !message.mes) {
+        console.log('[ThinkTags] No message or empty mes, skipping');
+        return;
+    }
 
     // Skip if already processed by this extension
-    if (message.extra?._thinkTagsProcessed) return;
+    if (message.extra?._thinkTagsProcessed) {
+        console.log('[ThinkTags] Already processed, skipping');
+        return;
+    }
+
+    console.log('[ThinkTags] message.mes (first 200 chars):', message.mes.substring(0, 200));
+    console.log('[ThinkTags] Has existing reasoning:', !!message.extra?.reasoning);
+    console.log('[ThinkTags] Looking for prefix:', JSON.stringify(settings.prefix), 'suffix:', JSON.stringify(settings.suffix));
+    console.log('[ThinkTags] indexOf prefix in mes:', message.mes.indexOf(settings.prefix));
 
     // Try raw tags first
     let result = extractThinkContent(message.mes, settings.prefix, settings.suffix);
+    console.log('[ThinkTags] Raw tag extraction:', result ? 'FOUND' : 'not found');
 
     // Try HTML-encoded variants as fallback
     if (!result) {
         const htmlPrefix = settings.prefix.replace(/</g, '&lt;').replace(/>/g, '&gt;');
         const htmlSuffix = settings.suffix.replace(/</g, '&lt;').replace(/>/g, '&gt;');
         if (htmlPrefix !== settings.prefix) {
+            console.log('[ThinkTags] Trying HTML-encoded:', JSON.stringify(htmlPrefix));
+            console.log('[ThinkTags] indexOf html prefix:', message.mes.indexOf(htmlPrefix));
             result = extractThinkContent(message.mes, htmlPrefix, htmlSuffix);
+            console.log('[ThinkTags] HTML extraction:', result ? 'FOUND' : 'not found');
         }
     }
 
-    if (!result) return;
+    if (!result) {
+        console.log('[ThinkTags] No think tags found, done');
+        return;
+    }
 
     if (!message.extra) {
         message.extra = {};
@@ -89,8 +115,10 @@ function handleMessageReceived(messageIndex) {
 
     // Merge: append to existing reasoning (e.g. from API-native reasoning)
     if (message.extra.reasoning) {
+        console.log('[ThinkTags] Appending to existing reasoning');
         message.extra.reasoning += '\n\n' + result.reasoning;
     } else {
+        console.log('[ThinkTags] Setting new reasoning');
         message.extra.reasoning = result.reasoning;
     }
 
@@ -104,11 +132,15 @@ function handleMessageReceived(messageIndex) {
 
     // Update the DOM if the message is already rendered
     if (typeof context.updateMessageBlock === 'function') {
+        console.log('[ThinkTags] Calling updateMessageBlock for index', index);
         context.updateMessageBlock(index, message);
+    } else {
+        console.log('[ThinkTags] WARNING: updateMessageBlock not available');
     }
 
-    // Force save since ST's built-in handler may have skipped saving
+    // Force save
     context.saveChatDebounced();
+    console.log('[ThinkTags] SUCCESS - reasoning extracted and saved');
 }
 
 /**
@@ -164,9 +196,14 @@ jQuery(async () => {
     loadSettings();
 
     const context = SillyTavern.getContext();
-    // Listen to both events for robustness — MESSAGE_RECEIVED fires first,
-    // CHARACTER_MESSAGE_RENDERED fires after as a safety net in case
-    // message text was re-synced between events.
+
+    console.log('[ThinkTags] Extension loaded');
+    console.log('[ThinkTags] eventTypes:', !!context.eventTypes);
+    console.log('[ThinkTags] MESSAGE_RECEIVED:', context.eventTypes?.MESSAGE_RECEIVED);
+    console.log('[ThinkTags] CHARACTER_MESSAGE_RENDERED:', context.eventTypes?.CHARACTER_MESSAGE_RENDERED);
+
     context.eventSource.on(context.eventTypes.MESSAGE_RECEIVED, handleMessageReceived);
     context.eventSource.on(context.eventTypes.CHARACTER_MESSAGE_RENDERED, handleMessageReceived);
+
+    console.log('[ThinkTags] Event listeners registered');
 });
