@@ -191,6 +191,59 @@ function onSuffixChange(event) {
 }
 
 /**
+ * Scan all existing messages in the current chat and process any with think tags.
+ */
+function processExistingMessages() {
+    const context = SillyTavern.getContext();
+    const settings = context.extensionSettings[MODULE_NAME];
+    if (!settings || !settings.enabled) return;
+
+    const chat = context.chat;
+    if (!chat || chat.length === 0) return;
+
+    let processed = 0;
+    for (let i = 0; i < chat.length; i++) {
+        const message = chat[i];
+        if (!message || !message.mes) continue;
+
+        let result = extractThinkContent(message.mes, settings.prefix, settings.suffix);
+        if (!result) {
+            const htmlPrefix = settings.prefix.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const htmlSuffix = settings.suffix.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            if (htmlPrefix !== settings.prefix) {
+                result = extractThinkContent(message.mes, htmlPrefix, htmlSuffix);
+            }
+        }
+        if (!result) continue;
+
+        if (!message.extra) message.extra = {};
+
+        if (message.extra.reasoning) {
+            message.extra.reasoning += '\n\n' + result.reasoning;
+        } else {
+            message.extra.reasoning = result.reasoning;
+        }
+
+        message.mes = result.cleanedText;
+
+        if (Array.isArray(message.swipes) && message.swipes.length > 0) {
+            message.swipes[message.swipe_id ?? 0] = message.mes;
+        }
+
+        if (typeof context.updateMessageBlock === 'function') {
+            context.updateMessageBlock(i, message);
+        }
+
+        processed++;
+    }
+
+    if (processed > 0) {
+        context.saveChatDebounced();
+        console.log(`[ThinkTags] Processed ${processed} existing message(s)`);
+    }
+}
+
+/**
  * Extension entry point.
  */
 jQuery(async () => {
@@ -202,22 +255,28 @@ jQuery(async () => {
         // 1. Register event listeners FIRST \u2014 core functionality
         context.eventSource.on(context.eventTypes.MESSAGE_RECEIVED, handleMessageReceived);
         context.eventSource.on(context.eventTypes.CHARACTER_MESSAGE_RENDERED, handleMessageReceived);
+
+        // 2. Also process existing messages when a chat is loaded/switched
+        context.eventSource.on(context.eventTypes.CHAT_CHANGED, processExistingMessages);
         console.log('[ThinkTags] Event listeners registered');
 
-        // 2. Load settings
+        // 3. Load settings
         const settings = loadSettings();
         console.log('[ThinkTags] Settings loaded:', JSON.stringify(settings));
 
-        // 3. Render settings UI (inline HTML \u2014 no external file dependency)
+        // 4. Render settings UI (inline HTML \u2014 no external file dependency)
         $('#extensions_settings').append(SETTINGS_HTML);
 
-        // 4. Bind UI events
+        // 5. Bind UI events
         $('#think_enabled').on('input', onEnabledChange);
         $('#think_prefix').on('input', onPrefixChange);
         $('#think_suffix').on('input', onSuffixChange);
 
-        // 5. Sync UI with settings
+        // 6. Sync UI with settings
         syncSettingsUI(settings);
+
+        // 7. Process any existing messages in the current chat right now
+        processExistingMessages();
 
         console.log('[ThinkTags] Extension loaded successfully');
     } catch (err) {
