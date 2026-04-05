@@ -73,7 +73,7 @@ function extractThinkContent(text, prefix, suffix) {
 }
 
 /**
- * Handle incoming AI messages — extract think tags into reasoning.
+ * Handle incoming AI messages \u2014 extract think tags into reasoning.
  */
 function handleMessageReceived(messageIndex) {
     try {
@@ -93,10 +93,8 @@ function handleMessageReceived(messageIndex) {
             return;
         }
 
-        if (message.extra?._thinkTagsProcessed) {
-            console.log('[ThinkTags] Already processed');
-            return;
-        }
+        // No dedup flag needed \u2014 if tags were already extracted,
+        // extractThinkContent returns null naturally.
 
         console.log('[ThinkTags] mes (first 200):', message.mes.substring(0, 200));
         console.log('[ThinkTags] indexOf prefix:', message.mes.indexOf(settings.prefix));
@@ -130,7 +128,6 @@ function handleMessageReceived(messageIndex) {
         }
 
         message.mes = result.cleanedText;
-        message.extra._thinkTagsProcessed = true;
 
         // Sync to swipe data
         if (Array.isArray(message.swipes) && message.swipes.length > 0) {
@@ -143,7 +140,7 @@ function handleMessageReceived(messageIndex) {
         }
 
         context.saveChatDebounced();
-        console.log('[ThinkTags] SUCCESS — extracted reasoning, updated message');
+        console.log('[ThinkTags] SUCCESS \u2014 extracted reasoning, updated message');
     } catch (err) {
         console.error('[ThinkTags] Error in handler:', err);
     }
@@ -202,7 +199,7 @@ jQuery(async () => {
 
         const context = SillyTavern.getContext();
 
-        // 1. Register event listeners FIRST — core functionality
+        // 1. Register event listeners FIRST \u2014 core functionality
         context.eventSource.on(context.eventTypes.MESSAGE_RECEIVED, handleMessageReceived);
         context.eventSource.on(context.eventTypes.CHARACTER_MESSAGE_RENDERED, handleMessageReceived);
         console.log('[ThinkTags] Event listeners registered');
@@ -211,7 +208,7 @@ jQuery(async () => {
         const settings = loadSettings();
         console.log('[ThinkTags] Settings loaded:', JSON.stringify(settings));
 
-        // 3. Render settings UI (inline HTML — no external file dependency)
+        // 3. Render settings UI (inline HTML \u2014 no external file dependency)
         $('#extensions_settings').append(SETTINGS_HTML);
 
         // 4. Bind UI events
